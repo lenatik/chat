@@ -5,7 +5,9 @@ import threading
 import websockets
 
 app = Flask(__name__)
-CORS(app)
+
+# Allow only your frontend URL to make requests to the server
+CORS(app, resources={r"/*": {"origins": "https://chat-implement.netlify.app"}})
 
 connected = set()
 
@@ -32,10 +34,10 @@ def give_port(port):
         thread = threading.Thread(target=run_websocket_server, args=(port,))
         thread.daemon = True
         thread.start()
-        return jsonify({ "message": "successful" })
+        return jsonify({"message": "successful"})
     except Exception as e:
         print("Error:", e)
-        return jsonify({ "message": "unsuccessful" })
+        return jsonify({"message": "unsuccessful"})
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0', port=5000)  # Use '0.0.0.0' to bind to all IPs for cloud hosting
