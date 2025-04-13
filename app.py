@@ -3,11 +3,18 @@ from flask_cors import CORS
 import asyncio
 import threading
 import websockets
+import os
 
 app = Flask(__name__)
 
-# Allow only your frontend URL to make requests to the server
-CORS(app, resources={r"/*": {"origins": "https://chat-implement.netlify.app"}})
+# Configure CORS for deployment
+CORS(app, resources={
+    r"/*": {
+        "origins": ["https://chat-implement.netlify.app", "https://your-deployed-server.com"],
+        "methods": ["GET", "POST"],
+        "allow_headers": ["Content-Type"]
+    }
+})
 
 connected = set()
 
@@ -16,14 +23,17 @@ def run_websocket_server(port):
         connected.add(web_socket)
         try:
             async for message in web_socket:
+                # Send message back to sender and broadcast to others
+                await web_socket.send(f"You: {message}")  # Echo back
                 for connection in connected:
                     if connection != web_socket:
-                        await connection.send(message)
+                        await connection.send(f"Other: {message}")  # Broadcast
         finally:
             connected.remove(web_socket)
 
     async def server():
-        async with websockets.serve(chat_handler, "localhost", port):
+        host = "0.0.0.0" if os.environ.get("DEPLOYED") else "localhost"
+        async with websockets.serve(chat_handler, host, port):
             await asyncio.Future()
 
     asyncio.run(server())
