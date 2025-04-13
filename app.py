@@ -7,10 +7,10 @@ import os
 
 app = Flask(__name__)
 
-# Configure CORS for deployment
+# CORS for frontend domain
 CORS(app, resources={
     r"/*": {
-        "origins": ["https://chat-implement.netlify.app", "https://your-deployed-server.com"],
+        "origins": ["https://chat-implement.netlify.app", "http://localhost:5173"],
         "methods": ["GET", "POST"],
         "allow_headers": ["Content-Type"]
     }
@@ -18,36 +18,34 @@ CORS(app, resources={
 
 connected = set()
 
-def run_websocket_server(port):
-    async def chat_handler(web_socket):
-        connected.add(web_socket)
-        try:
-            async for message in web_socket:
-                # Send message back to sender and broadcast to others
-                await web_socket.send(f"You: {message}")  # Echo back
-                for connection in connected:
-                    if connection != web_socket:
-                        await connection.send(f"Other: {message}")  # Broadcast
-        finally:
-            connected.remove(web_socket)
+async def chat_handler(web_socket):
+    connected.add(web_socket)
+    try:
+        async for message in web_socket:
+            await web_socket.send(f"You: {message}")
+            for connection in connected:
+                if connection != web_socket:
+                    await connection.send(f"Other: {message}")
+    finally:
+        connected.remove(web_socket)
 
+def run_websocket_server():
     async def server():
-        host = "0.0.0.0" if os.environ.get("DEPLOYED") else "localhost"
-        async with websockets.serve(chat_handler, host, port):
+        port = int(os.environ.get("PORT", 5000))
+        host = "0.0.0.0"
+        async with websockets.serve(chat_handler, host, port, ping_interval=None):
+            print(f"WebSocket server running on ws://{host}:{port}")
             await asyncio.Future()
 
     asyncio.run(server())
 
-@app.route("/give_port/<int:port>", methods=["GET"])
-def give_port(port):
-    try:
-        thread = threading.Thread(target=run_websocket_server, args=(port,))
-        thread.daemon = True
-        thread.start()
-        return jsonify({"message": "successful"})
-    except Exception as e:
-        print("Error:", e)
-        return jsonify({"message": "unsuccessful"})
+# Start WebSocket server in a background thread
+threading.Thread(target=run_websocket_server, daemon=True).start()
+
+@app.route("/")
+def home():
+    return jsonify({"message": "Flask with WebSocket is running!"})
 
 if __name__ == "__main__":
-    app.run(debug=True, host='0.0.0.0', port=5000)  # Use '0.0.0.0' to bind to all IPs for cloud hosting
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
