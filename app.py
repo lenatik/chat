@@ -31,13 +31,14 @@ async def chat_handler(web_socket):
 
 def run_websocket_server():
     async def server():
-        port = int(os.environ.get("PORT", 5000))
         host = "0.0.0.0"
-        async with websockets.serve(chat_handler, host, port, ping_interval=None):
-            print(f"WebSocket server running on ws://{host}:{port}")
+        ws_port = 8765  # Different from Flask port
+        async with websockets.serve(chat_handler, host, ws_port, ping_interval=None):
+            print(f"WebSocket server running on ws://{host}:{ws_port}")
             await asyncio.Future()
 
     asyncio.run(server())
+
 
 # Start WebSocket server in a background thread
 threading.Thread(target=run_websocket_server, daemon=True).start()
